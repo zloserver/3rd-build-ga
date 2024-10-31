@@ -18,10 +18,19 @@ jobs:
       contains(github.event.head_commit.message, '[all]') ||
       contains(github.event.head_commit.message, '[ios]') ||
       contains(github.event.head_commit.message, '[ios-libssh]') ||
-      contains(github.event.head_commit.message, '[libssh]')    
+      contains(github.event.head_commit.message, '[libssh]')
     strategy:
       matrix:
         arch: [arm64]
+        platform:
+          [
+            { name: iphoneos, platform: iPhoneOS, cross: iphoneos-cross },
+            {
+              name: iphonesimulator,
+              platform: iPhoneOS,
+              cross: iossimulator-xcrun,
+            },
+          ]
         # no-crypto=yes: builds version with all crypto disabled
         # no-crypto=no: builds version with all crypto enabled (where required dependencies are available)
         no_crypto:
@@ -29,58 +38,57 @@ jobs:
         #  - yes
 
     steps:
-    - name: Get dependencies
-      run: |
-        # Get and unpack zlibx
-        curl -LOJ https://zlib.net/zlib-${{env.ZLIB_VERSION}}.tar.gz
-        tar -xzf zlib-${{env.ZLIB_VERSION}}.tar.gz
-        
-        # Get and unpack openssl
-        curl -LOJ https://www.openssl.org/source/openssl-${{env.OPENSSL_VERSION}}.tar.gz
-        tar -xzf openssl-${{env.OPENSSL_VERSION}}.tar.gz
-        
-        # Get and unpack libssh
-        curl -LOJ ${{env.LIBSSH_SOURCE}}libssh-${{env.LIBSSH_VERSION}}.tar.xz 
-        tar -xf libssh-${{env.LIBSSH_VERSION}}.tar.xz
-        cd libssh-${{env.LIBSSH_VERSION}}
-        mkdir build
+      - name: Get dependencies
+        run: |
+          # Get and unpack zlibx
+          curl -LOJ https://zlib.net/zlib-${{env.ZLIB_VERSION}}.tar.gz
+          tar -xzf zlib-${{env.ZLIB_VERSION}}.tar.gz
 
-    - name: Build zlib
-      run: |
-        cd zlib-${{env.ZLIB_VERSION}}
-        cmake -G "Xcode" -DCMAKE_SYSTEM_NAME=iOS -DCMAKE_OSX_SYSROOT=iphoneos -DCMAKE_C_COMPILER="$(xcrun -find cc)" -DCMAKE_OSX_DEPLOYMENT_TARGET=11.0 -DCMAKE_OSX_ARCHITECTURES="arm64" -DCMAKE_C_FLAGS='-fembed-bitcode'
-        cmake --build ./ --target "zlibstatic" --config ${CONFIGURATION:-Release}
-        cp ./Release-iphoneos/libz.a ${{github.workspace}}/libssh-${{env.LIBSSH_VERSION}}/build/libz.a
-        
+          # Get and unpack openssl
+          curl -LOJ https://www.openssl.org/source/openssl-${{env.OPENSSL_VERSION}}.tar.gz
+          tar -xzf openssl-${{env.OPENSSL_VERSION}}.tar.gz
 
-    - name: Build openssl
-      run: |
-        cd openssl-${{env.OPENSSL_VERSION}}
-        export PLATFORM="iPhoneOS"
-        export DEVELOPER=`xcode-select -print-path`
-        export CROSS_TOP="${DEVELOPER}/Platforms/${PLATFORM}.platform/Developer"
-        export CROSS_SDK="${PLATFORM}${IOS_SDK_VERSION}.sdk"
-        export ARCH="arm64"
-        export BUILD_TOOLS="${DEVELOPER}"
-        export CC="${BUILD_TOOLS}/usr/bin/gcc -arch ${ARCH}" 
-        echo "+ Activate Static Engine"
-        sed -ie 's/\"engine/\"dynamic-engine/' ./Configurations/15-ios.conf
-        ./Configure iphoneos-cross no-tests no-shared 
-        make
+          # Get and unpack libssh
+          curl -LOJ ${{env.LIBSSH_SOURCE}}libssh-${{env.LIBSSH_VERSION}}.tar.xz 
+          tar -xf libssh-${{env.LIBSSH_VERSION}}.tar.xz
+          cd libssh-${{env.LIBSSH_VERSION}}
+          mkdir build
 
-    - name: Build libssh
-      run: |
-        cd libssh-${{env.LIBSSH_VERSION}}/build
-        cmake .. -G "Xcode" -DCMAKE_SYSTEM_NAME=iOS -DWITH_GSSAPI=OFF -DCMAKE_OSX_SYSROOT=iphoneos -DCMAKE_C_COMPILER="$(xcrun -find cc)" -DCMAKE_OSX_DEPLOYMENT_TARGET=11.0 -DCMAKE_OSX_ARCHITECTURES="arm64" -DCMAKE_C_FLAGS='-fembed-bitcode' -DWITH_SERVER=OFF -DBUILD_SHARED_LIBS=OFF -DOPENSSL_ROOT_DIR=${{github.workspace}}/openssl-${{env.OPENSSL_VERSION}} -DZLIB_ROOT_DIR=${{github.workspace}}/zlib-${{env.ZLIB_VERSION}} -DZLIB_LIBRARY=${{github.workspace}}/zlib-${{env.ZLIB_VERSION}}/Release-iphoneos/libz.a -DOPENSSL_CRYPTO_LIBRARY=${{github.workspace}}/openssl-${{env.OPENSSL_VERSION}}/libcrypto.a:${{github.workspace}}/openssl-${{env.OPENSSL_VERSION}} -DOPENSSL_INCLUDE_DIR=${{github.workspace}}/openssl-${{env.OPENSSL_VERSION}}/include
-        cmake --build ./ --target "ssh" --config ${CONFIGURATION:-Release}
+      - name: Build zlib
+        run: |
+          cd zlib-${{env.ZLIB_VERSION}}
+          cmake -G "Xcode" -DCMAKE_SYSTEM_NAME=iOS -DCMAKE_OSX_SYSROOT=${{ matrix.platform.name }} -DCMAKE_C_COMPILER="$(xcrun -find cc)" -DCMAKE_OSX_DEPLOYMENT_TARGET=11.0 -DCMAKE_OSX_ARCHITECTURES="arm64" -DCMAKE_C_FLAGS='-fembed-bitcode'
+          cmake --build ./ --target "zlibstatic" --config ${CONFIGURATION:-Release}
+          cp ./Release-${{ matrix.platform.name }}/libz.a ${{github.workspace}}/libssh-${{env.LIBSSH_VERSION}}/build/libz.a
 
-    - name: Upload Artifact
-      uses: actions/upload-artifact@v2.2.4
-      with:
-        name: libssh-ios-${{ matrix.arch }}
-        path: ${{ github.workspace }}/libssh-${{env.LIBSSH_VERSION}}/build
-        if-no-files-found: error
-        retention-days: 7
+      - name: Build openssl
+        run: |
+          cd openssl-${{env.OPENSSL_VERSION}}
+          export PLATFORM="${{ matrix.platform.platform }}"
+          export DEVELOPER=`xcode-select -print-path`
+          export CROSS_TOP="${DEVELOPER}/Platforms/${PLATFORM}.platform/Developer"
+          export CROSS_SDK="${PLATFORM}${IOS_SDK_VERSION}.sdk"
+          export ARCH="arm64"
+          export BUILD_TOOLS="${DEVELOPER}"
+          export CC="${BUILD_TOOLS}/usr/bin/gcc -arch ${ARCH}" 
+          echo "+ Activate Static Engine"
+          sed -ie 's/\"engine/\"dynamic-engine/' ./Configurations/15-ios.conf
+          ./Configure ${{ matrix.platform.cross }} no-tests no-shared 
+          make
+
+      - name: Build libssh
+        run: |
+          cd libssh-${{env.LIBSSH_VERSION}}/build
+          cmake .. -G "Xcode" -DCMAKE_SYSTEM_NAME=iOS -DWITH_GSSAPI=OFF -DCMAKE_OSX_SYSROOT=${{ matrix.platform.name }} -DCMAKE_C_COMPILER="$(xcrun -find cc)" -DCMAKE_OSX_DEPLOYMENT_TARGET=11.0 -DCMAKE_OSX_ARCHITECTURES="arm64" -DCMAKE_C_FLAGS='-fembed-bitcode' -DWITH_SERVER=OFF -DBUILD_SHARED_LIBS=OFF -DOPENSSL_ROOT_DIR=${{github.workspace}}/openssl-${{env.OPENSSL_VERSION}} -DZLIB_ROOT_DIR=${{github.workspace}}/zlib-${{env.ZLIB_VERSION}} -DZLIB_LIBRARY=${{github.workspace}}/zlib-${{env.ZLIB_VERSION}}/Release-${{matrix.platform.name}}/libz.a -DOPENSSL_CRYPTO_LIBRARY=${{github.workspace}}/openssl-${{env.OPENSSL_VERSION}}/libcrypto.a:${{github.workspace}}/openssl-${{env.OPENSSL_VERSION}} -DOPENSSL_INCLUDE_DIR=${{github.workspace}}/openssl-${{env.OPENSSL_VERSION}}/include
+          cmake --build ./ --target "ssh" --config ${CONFIGURATION:-Release}
+
+      - name: Upload Artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: libssh-${{ matrix.platform.name }}-${{ matrix.arch }}
+          path: ${{ github.workspace }}/libssh-${{env.LIBSSH_VERSION}}/build
+          if-no-files-found: error
+          retention-days: 7
 
   github-release:
     name: GitHub Release
@@ -93,7 +101,7 @@ jobs:
         uses: actions/checkout@v2
 
       - name: Setup | Artifacts
-        uses: actions/download-artifact@v2
+        uses: actions/download-artifact@v4
 
       - name: Setup | Checksums
         run: for file in $(find ./ -name '*.a' ); do openssl dgst -sha256 -r "$file" | awk '{print $1}' > "${file}.sha256"; done
@@ -108,4 +116,4 @@ jobs:
           file: "*.zip"
           tag: ${{ github.ref }}
           overwrite: true
-          file_glob: true           
+          file_glob: true
