@@ -2,11 +2,9 @@ name: cloak
 
 on: [push]
 
-
 jobs:
-      
   Build-Cloak:
-    name: 'Build-Cloak'
+    name: "Build-Cloak"
     runs-on: ubuntu-latest
     if: |
       contains(github.event.head_commit.message, '[all]') ||
@@ -16,78 +14,77 @@ jobs:
       contains(github.event.head_commit.message, '[cloak]')
 
     steps:
-  
-    - name: 'Install GO'
-      uses: actions/setup-go@v2
-      with:
-        go-version: '^1.22' # The Go version to download (if necessary) and use.
+      - name: "Install GO"
+        uses: actions/setup-go@v2
+        with:
+          go-version: "^1.22" # The Go version to download (if necessary) and use.
 
-    - name: 'Setup ccache'
-      uses: hendrikmuhs/ccache-action@v1.2
-          
-    - name: 'Get sources'
-      uses: actions/checkout@v3
-      with:
-        submodules: 'true'
-        fetch-depth: 10
+      - name: "Setup ccache"
+        uses: hendrikmuhs/ccache-action@v1.2
 
-    - name: 'Get Cloak'
-      uses: actions/checkout@v3
-      with:
-        repository: amnezia-vpn/Cloak
-        ref: master-amnezia
-        path: Cloak
+      - name: "Get sources"
+        uses: actions/checkout@v3
+        with:
+          submodules: "true"
+          fetch-depth: 10
 
-    - name: 'Build Cloak binary'
-      working-directory: Cloak
-      run: |
-        export PATH=${PATH}:`go env GOPATH`/bin
-        v=${GITHUB_REF#refs/*/} ./release.sh
+      - name: "Get Cloak"
+        uses: actions/checkout@v3
+        with:
+          repository: amnezia-vpn/Cloak
+          ref: master-amnezia
+          path: Cloak
 
-    - name: 'Build desktop Cloak plugin'
-      working-directory: Cloak
-      run: |
-        sudo apt-get install gcc-mingw-w64
-        mkdir ./release/plugin
-        mkdir ./release/plugin/linux
-        CGO_ENABLED=1 GOOS="linux" GOARCH="amd64" go build -v -o ./release/plugin/linux/ck-ovpn-plugin.a -buildmode=c-archive ./cmd/ck-ovpn-plugin/
-        mkdir ./release/plugin/windows
-        CGO_ENABLED=1 CC=x86_64-w64-mingw32-gcc  GOOS="windows" GOARCH="amd64" go build -v -o ./release/plugin/windows/ck-ovpn-plugin.dll -buildmode=c-shared ./cmd/ck-ovpn-plugin/  
+      - name: "Build Cloak binary"
+        working-directory: Cloak
+        run: |
+          export PATH=${PATH}:`go env GOPATH`/bin
+          v=${GITHUB_REF#refs/*/} ./release.sh
 
-    - name: Archive Linux client binary
-      uses: actions/upload-artifact@v3
-      with:
-        retention-days: 1
-        name: ck-client-linux
-        path: '~/work/3rd-build-ga/3rd-build-ga/Cloak/release/ck-client-linux*'
-    
-    - name: Archive Windows client binary
-      uses: actions/upload-artifact@v3
-      with:
-        retention-days: 1
-        name: ck-client-windows
-        path: '~/work/3rd-build-ga/3rd-build-ga/Cloak/release/ck-client-windows*'
-        
-    - name: Archive Darwin client binary
-      uses: actions/upload-artifact@v3
-      with:
-        retention-days: 1
-        name: ck-client-darwin
-        path: '~/work/3rd-build-ga/3rd-build-ga/Cloak/release/ck-client-darwin*'
-   
-    - name: Archive Linux server binary
-      uses: actions/upload-artifact@v3
-      with:
-        retention-days: 1
-        name: ck-server
-        path: '~/work/3rd-build-ga/3rd-build-ga/Cloak/release/ck-server-linux*'
+      - name: "Build desktop Cloak plugin"
+        working-directory: Cloak
+        run: |
+          sudo apt-get install gcc-mingw-w64
+          mkdir ./release/plugin
+          mkdir ./release/plugin/linux
+          CGO_ENABLED=1 GOOS="linux" GOARCH="amd64" go build -v -o ./release/plugin/linux/ck-ovpn-plugin.a -buildmode=c-archive ./cmd/ck-ovpn-plugin/
+          mkdir ./release/plugin/windows
+          CGO_ENABLED=1 CC=x86_64-w64-mingw32-gcc  GOOS="windows" GOARCH="amd64" go build -v -o ./release/plugin/windows/ck-ovpn-plugin.dll -buildmode=c-shared ./cmd/ck-ovpn-plugin/
 
-    - name: Archive Plugin
-      uses: actions/upload-artifact@v3
-      with:
-        retention-days: 1
-        name: desktop-plugin
-        path: '~/work/3rd-build-ga/3rd-build-ga/Cloak/release/plugin'
+      - name: Archive Linux client binary
+        uses: actions/upload-artifact@v3
+        with:
+          retention-days: 1
+          name: ck-client-linux
+          path: "~/work/3rd-build-ga/3rd-build-ga/Cloak/release/ck-client-linux*"
+
+      - name: Archive Windows client binary
+        uses: actions/upload-artifact@v3
+        with:
+          retention-days: 1
+          name: ck-client-windows
+          path: "~/work/3rd-build-ga/3rd-build-ga/Cloak/release/ck-client-windows*"
+
+      - name: Archive Darwin client binary
+        uses: actions/upload-artifact@v3
+        with:
+          retention-days: 1
+          name: ck-client-darwin
+          path: "~/work/3rd-build-ga/3rd-build-ga/Cloak/release/ck-client-darwin*"
+
+      - name: Archive Linux server binary
+        uses: actions/upload-artifact@v3
+        with:
+          retention-days: 1
+          name: ck-server
+          path: "~/work/3rd-build-ga/3rd-build-ga/Cloak/release/ck-server-linux*"
+
+      - name: Archive Plugin
+        uses: actions/upload-artifact@v3
+        with:
+          retention-days: 1
+          name: desktop-plugin
+          path: "~/work/3rd-build-ga/3rd-build-ga/Cloak/release/plugin"
 
   Build-Cloak-MacOS:
     runs-on: macos-12
@@ -95,10 +92,9 @@ jobs:
       contains(github.event.head_commit.message, '[all]') ||
       contains(github.event.head_commit.message, '[macos]') ||
       contains(github.event.head_commit.message, '[cloak]')
-    
+
     name: "Build Cloak Desktop plugin"
     steps:
-
       - name: Get Cloak
         uses: actions/checkout@v3
         with:
@@ -106,11 +102,11 @@ jobs:
           ref: master-amnezia
           path: Cloak
 
-      - name: 'Run build script'
+      - name: "Run build script"
         working-directory: Cloak
         run: |
           CGO_ENABLED=1 GOOS="darwin" GOARCH="amd64" go build -v -o ./release/plugin/darwin/ck-ovpn-plugin.a -buildmode=c-archive ./cmd/ck-ovpn-plugin/
-      
+
       - name: Archive artifacts
         uses: actions/upload-artifact@v3
         with:
@@ -118,15 +114,17 @@ jobs:
           path: Cloak/release/plugin
 
   Build-Cloak-iOS:
-    runs-on: macos-12
+    runs-on: macos-13
     if: |
       contains(github.event.head_commit.message, '[all]') ||
       contains(github.event.head_commit.message, '[ios]') ||
       contains(github.event.head_commit.message, '[cloak]')
-    
+    strategy:
+      matrix:
+        platform: [iphoneos, iphonesimulator]
+
     name: "Build Cloak iOS Plugin"
     steps:
-
       - name: Get Cloak
         uses: actions/checkout@v3
         with:
@@ -134,17 +132,25 @@ jobs:
           ref: master-amnezia
           path: Cloak
 
-      - name: 'Run build script'
+      - name: "Setup/Update Go"
+        uses: actions/setup-go@v5
+        with:
+          go-version: ">=1.22.1"
+
+      - name: "Run build script"
         working-directory: Cloak
         run: |
-          GOOS=ios GOARCH=arm64 GOFLAGS="-tags=ios" CGO_CFLAGS="-isysroot /Applications/Xcode.app/Contents/Developer/Platforms/iPhoneOS.platform/Developer/SDKs/iPhoneOS.sdk -miphoneos-version-min=9.0 -fembed-bitcode -arch arm64" CGO_CXXFLAGS="-isysroot /Applications/Xcode.app/Contents/Developer/Platforms/iPhoneOS.platform/Developer/SDKs/iPhoneOS.sdk -miphoneos-version-min=9.0 -fembed-bitcode -arch arm64" CGO_LDFLAGS="-isysroot /Applications/Xcode.app/Contents/Developer/Platforms/iPhoneOS.platform/Developer/SDKs/iPhoneOS.sdk -miphoneos-version-min=9.0 -fembed-bitcode -arch arm64" CGO_ENABLED=1 go build -buildmode=c-archive -o ck-ovpn-plugin.a ./cmd/ck-ovpn-plugin
+          export PLATFORM_NAME=iphoneos
+          export SDKROOT=$(xcrun --sdk $PLATFORM_NAME --show-sdk-path)
+          echo "Building with sdkroot: $SDKROOT"
+          GOOS=ios GOARCH=arm64 GOFLAGS="-tags=ios" CGO_CFLAGS="-isysroot $SDKROOT -miphoneos-version-min=9.0 -fembed-bitcode -arch arm64" CGO_CXXFLAGS="-isysroot $SDKROOT -miphoneos-version-min=9.0 -fembed-bitcode -arch arm64" CGO_LDFLAGS="-isysroot $SDKROOT -miphoneos-version-min=9.0 -fembed-bitcode -arch arm64" CGO_ENABLED=1 go build -buildmode=c-archive -o ck-ovpn-plugin.a ./cmd/ck-ovpn-plugin
 
       - name: Archive iOS client binary
         uses: actions/upload-artifact@v3
         with:
           retention-days: 1
-          name: ck-ios-plugin
-          path: '~/work/3rd-build-ga/3rd-build-ga/Cloak/ck-ovpn-plugin*'
+          name: ck-ios-${{ matrix.platform }}-plugin
+          path: "~/work/3rd-build-ga/3rd-build-ga/Cloak/ck-ovpn-plugin*"
 
   github-release:
     name: GitHub Release
@@ -172,8 +178,8 @@ jobs:
           file: ck-client-linux.zip
           tag: ${{ github.ref }}
           overwrite: true
-          file_glob: true       
-      
+          file_glob: true
+
       - name: Upload binaries to release
         uses: svenstaro/upload-release-action@v2
         with:
@@ -181,7 +187,7 @@ jobs:
           file: ck-client-windows.zip
           tag: ${{ github.ref }}
           overwrite: true
-          file_glob: true   
+          file_glob: true
 
       - name: Upload binaries to release
         uses: svenstaro/upload-release-action@v2
@@ -190,7 +196,7 @@ jobs:
           file: ck-client-darwin.zip
           tag: ${{ github.ref }}
           overwrite: true
-          file_glob: true                               
+          file_glob: true
 
       - name: Upload binaries to release
         uses: svenstaro/upload-release-action@v2
@@ -209,7 +215,7 @@ jobs:
           tag: ${{ github.ref }}
           overwrite: true
           file_glob: true
-              
+
       - name: Upload binaries to release
         uses: svenstaro/upload-release-action@v2
         with:
@@ -217,8 +223,8 @@ jobs:
           file: darwin-pt.zip
           tag: ${{ github.ref }}
           overwrite: true
-          file_glob: true  
-                   
+          file_glob: true
+
       - name: Upload binaries to release
         uses: svenstaro/upload-release-action@v2
         with:
@@ -226,4 +232,4 @@ jobs:
           file: desktop-plugin.zip
           tag: ${{ github.ref }}
           overwrite: true
-          file_glob: true     
+          file_glob: true
