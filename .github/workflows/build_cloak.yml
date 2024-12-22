@@ -125,9 +125,6 @@ jobs:
       contains(github.event.head_commit.message, '[ios]') ||
       contains(github.event.head_commit.message, '[cloak]') ||
       contains(github.event.head_commit.message, '[ios-cloak]')
-    strategy:
-      matrix:
-        platform: [iphoneos, iphonesimulator]
 
     name: "Build Cloak iOS Plugin"
     steps:
@@ -143,26 +140,37 @@ jobs:
         with:
           go-version: ">=1.22.1"
 
-      - name: "Run build script"
+      - name: "Run build script iOS"
         working-directory: Cloak
         run: |
-          export PLATFORM_NAME=${{ matrix.platform }}
-          export SDKROOT=$(xcrun --sdk $PLATFORM_NAME --show-sdk-path)
           export MIN_VERSION=9.0
-          if [ "$PLATFORM_NAME" = "iphoneos" ]; then
-              export TARGET="-target arm64-apple-ios-$MIN_VERSION"
-          elif [ "$PLATFORM_NAME" = "iphonesimulator" ]; then
-              export TARGET="-target arm64-apple-ios-$MIN_VERSION-simulator"
-          fi
+          export PLATFORM_NAME=iphoneos
+          export SDKROOT=$(xcrun --sdk $PLATFORM_NAME --show-sdk-path)
+          export TARGET="-target arm64-apple-ios-$MIN_VERSION"
           echo "Building with sdkroot: $SDKROOT"
+          GOOS=ios GOARCH=arm64 GOFLAGS="-tags=ios" CGO_CFLAGS="-isysroot $SDKROOT -miphoneos-version-min=$MIN_VERSION -fembed-bitcode -arch arm64 $TARGET" CGO_CXXFLAGS="-isysroot $SDKROOT -miphoneos-version-min=9.0 -fembed-bitcode -arch arm64 $TARGET" CGO_LDFLAGS="-isysroot $SDKROOT -miphoneos-version-min=9.0 -fembed-bitcode -arch arm64 $TARGET" CGO_ENABLED=1 go build -buildmode=c-archive -o ck-ovpn-plugin-ios.a ./cmd/ck-ovpn-plugin
 
-          GOOS=ios GOARCH=arm64 GOFLAGS="-tags=ios" CGO_CFLAGS="-isysroot $SDKROOT -miphoneos-version-min=$MIN_VERSION -fembed-bitcode -arch arm64 $TARGET" CGO_CXXFLAGS="-isysroot $SDKROOT -miphoneos-version-min=9.0 -fembed-bitcode -arch arm64 $TARGET" CGO_LDFLAGS="-isysroot $SDKROOT -miphoneos-version-min=9.0 -fembed-bitcode -arch arm64 $TARGET" CGO_ENABLED=1 go build -buildmode=c-archive -o ck-ovpn-plugin.a ./cmd/ck-ovpn-plugin
+      - name: "Run build script Simulator"
+        working-directory: Cloak
+        run: |
+          export MIN_VERSION=9.0
+          export PLATFORM_NAME=iphonesimulator
+          export SDKROOT=$(xcrun --sdk $PLATFORM_NAME --show-sdk-path)
+          export TARGET="-target arm64-apple-ios-$MIN_VERSION-simulator"
+          echo "Building with sdkroot: $SDKROOT"
+          GOOS=ios GOARCH=arm64 GOFLAGS="-tags=ios" CGO_CFLAGS="-isysroot $SDKROOT -miphoneos-version-min=$MIN_VERSION -fembed-bitcode -arch arm64 $TARGET" CGO_CXXFLAGS="-isysroot $SDKROOT -miphoneos-version-min=9.0 -fembed-bitcode -arch arm64 $TARGET" CGO_LDFLAGS="-isysroot $SDKROOT -miphoneos-version-min=9.0 -fembed-bitcode -arch arm64 $TARGET" CGO_ENABLED=1 go build -buildmode=c-archive -o ck-ovpn-plugin-iphonesimulator.a ./cmd/ck-ovpn-plugin
+
+      - name: "Create framework"
+        working-directory: Cloak
+        run: |
+          xcodebuild -create-xcframework -library ck-ovpn-plugin-ios.a -library ck-ovpn-plugin-iphonesimulator.a -output ck-ovpn-plugin.xcframework
+          rm -rf ck-ovpn-plugin-ios.a ck-ovpn-plugin-iphonesimulator.a
 
       - name: Archive iOS client binary
         uses: actions/upload-artifact@v4
         with:
           retention-days: 7
-          name: ck-ios-${{ matrix.platform }}-plugin
+          name: ck-ios-plugin
           path: "~/work/3rd-build-ga/3rd-build-ga/Cloak/ck-ovpn-plugin*"
 
   github-release:
